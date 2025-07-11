@@ -25,4 +25,5 @@ jobs:
       - name: Execution Information
         env:
           BILIBILI_COOKIE: ${{ secrets.BILIBILI_COOKIE }}
+          PUSH_PLUS_TOKEN: ${{ secrets.PUSH_PLUS_TOKEN }}
         run: python auto_task.py
