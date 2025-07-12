@@ -27,6 +27,7 @@
 1. Fork本项目到你的GitHub仓库中。
 2. 在你的仓库 `Settings -> Secrets and variables -> Actions` 中，添加以下 `Repository secrets`：
 
+
  | 名称 | 是否必需 | 说明 | 默认值 |
 |---|---|---|---|
 | `BILIBILI_COOKIE` | **是** | B站Cookie。多账号用 `###` 分隔。 | 无 |
