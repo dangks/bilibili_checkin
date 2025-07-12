@@ -27,10 +27,15 @@
 1. Fork本项目到你的GitHub仓库中。
 2. 在你的仓库 `Settings -> Secrets and variables -> Actions` 中，添加以下 `Repository secrets`：
 
-   | 名称 | 是否必需 | 说明 |
-   | --- | --- | --- |
-   | `BILIBILI_COOKIE` | **是** | 你的B站Cookie。**支持多账号**，多个Cookie之间请使用 `###` 作为分隔符。 |
-   | `PUSH_PLUS_TOKEN` | **否** | 用于 [PushPlus](http://www.pushplus.plus/) 推送的 Token。配置后，所有账号的任务执行结果会统一推送到你的微信。 |
+
+ | 名称 | 是否必需 | 说明 | 默认值 |
+|---|---|---|---|
+| `BILIBILI_COOKIE` | **是** | B站Cookie。多账号用 `###` 分隔。 | 无 |
+| `PUSH_PLUS_TOKEN` | **否** | PushPlus 的 Token，用于推送通知。 | 无 |
+| `TASK_CONFIG` | **否** | 任务执行控制，用逗号分隔。可选值: `live_sign`, `manga_sign`, `share_video`, `add_coin` | `live_sign,manga_sign,share_video,add_coin` |
+| `COIN_ADD_NUM` | **否** | 每日投币数量。 | `1` |
+| `COIN_SELECT_LIKE`| **否** | 投币时是否点赞。`1` 为是，`0` 为否。 | `1` |
+| `COIN_VIDEO_SOURCE`| **否** | 投币视频来源。`dynamic` (动态)，`ranking` (排行榜)。 | `dynamic` |
 
    **多账号Cookie配置示例:**
    cookie账号1###cookie账号2###cookie账号3
@@ -56,8 +61,8 @@
 3. 可以根据需要修改cron表达式调整执行时间。  
 4. 请确保Cookie有效，修改密码或退出登录会导致Cookie失效。  
 5. 请勿在任何位置明文泄露你的Cookie以防账号被盗。  
-6. 本项目仅供学习交流使用，请勿滥用。
-
+6. **为了保护用户隐私，GitHub Actions 公开日志中的用户名等信息将进行脱敏处理（例如 `U******e`），请放心使用。**
+7. 本项目仅供学习交流使用，请勿滥用。
 
 ## 常规问题解答：  
 1. 关于分享视频：  
