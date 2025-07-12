@@ -22,7 +22,7 @@ def mask_string(s: str) -> str:
     return f"{s[0]}{'*' * (len(s) - 2)}{s[-1]}"
 
 def execute_coin_task(bili, user_info, config):
-    coins_to_add = int(config.get('COIN_ADD_NUM', 1))
+    coins_to_add = int(config.get('COIN_ADD_NUM'))
     if coins_to_add <= 0:
         return True, "配置为0，跳过"
     
@@ -30,7 +30,7 @@ def execute_coin_task(bili, user_info, config):
     if coin_balance < 1:
         return True, f"硬币不足({coin_balance})，跳过"
     
-    coins_to_add = min(coins_to_add, int(coin_balance), 5) # 每日最多投5个币获取经验
+    coins_to_add = min(coins_to_add, int(coin_balance), 5)
 
     if config.get('COIN_VIDEO_SOURCE') == 'ranking':
         video_list = bili.get_ranking_videos()
@@ -47,18 +47,18 @@ def execute_coin_task(bili, user_info, config):
         if added_coins >= coins_to_add:
             break
         
-        # 乐观投币，依赖API的返回结果判断是否重复
-        success, msg = bili.add_coin(bvid, 1, int(config.get('COIN_SELECT_LIKE', 1)))
+        success, msg = bili.add_coin(bvid, 1, int(config.get('COIN_SELECT_LIKE')))
         if success:
             added_coins += 1
             logger.info(f"为视频 {bvid} 投币成功。")
         elif "已达到" in msg:
             logger.warning("今日投币上限已满，终止投币。")
-            # 如果API明确返回“已满”，我们可以提前终止循环
-            added_coins = config.get('COIN_ADD_NUM', 1) # 标记为任务完成
+            added_coins = config.get('COIN_ADD_NUM')
             break
         else:
             logger.warning(f"为视频 {bvid} 投币失败: {msg}")
+            if "硬币不足" in msg:
+                break
 
     return True, f"尝试投币，最终成功 {added_coins} 枚"
 
@@ -75,11 +75,9 @@ def run_all_tasks_for_account(bili, config):
     logger.info(f"账号名称: {masked_uname}")
     tasks_result = {}
     
-    # 由于无法预先检查任务状态，我们总是尝试获取视频列表
     video_list = bili.get_dynamic_videos()
-    bvid_for_task = video_list[0] if video_list else 'BV1GJ411x7h7' # 提供一个备用BVID
+    bvid_for_task = video_list[0] if video_list else 'BV1GJ411x7h7'
 
-    # 直接执行任务，不再预先检查
     if 'share_video' in tasks_to_run:
         tasks_result['分享视频'] = bili.share_video(bvid_for_task)
     if 'live_sign' in tasks_to_run:
@@ -87,23 +85,25 @@ def run_all_tasks_for_account(bili, config):
     if 'manga_sign' in tasks_to_run:
         tasks_result['漫画签到'] = bili.manga_sign()
     if 'add_coin' in tasks_to_run:
-        # 投币任务现在不依赖 reward_info
         tasks_result['投币任务'] = execute_coin_task(bili, user_info, config)
 
-    # 观看视频任务仍然执行，B站API会处理重复观看的情况
     tasks_result['观看视频'] = bili.watch_video(bvid_for_task)
 
     return tasks_result, user_info
 
 def main():
+    # ==================== 【核心修改点在这里】 ====================
+    # 我们先用 .get() 获取值，如果值是空字符串，就用 or 操作符来选择默认值。
+    # 这样既能处理"变量不存在"的情况，也能处理"变量存在但为空"的情况。
     config = {
         "BILIBILI_COOKIE": os.environ.get('BILIBILI_COOKIE'),
         "PUSH_PLUS_TOKEN": os.environ.get('PUSH_PLUS_TOKEN'),
-        "TASK_CONFIG": os.environ.get('TASK_CONFIG', 'live_sign,manga_sign,share_video,add_coin'),
-        "COIN_ADD_NUM": os.environ.get('COIN_ADD_NUM', '1'),
-        "COIN_SELECT_LIKE": os.environ.get('COIN_SELECT_LIKE', '1'),
-        "COIN_VIDEO_SOURCE": os.environ.get('COIN_VIDEO_SOURCE', 'dynamic')
+        "TASK_CONFIG": os.environ.get('TASK_CONFIG') or 'live_sign,manga_sign,share_video,add_coin',
+        "COIN_ADD_NUM": os.environ.get('COIN_ADD_NUM') or '1',
+        "COIN_SELECT_LIKE": os.environ.get('COIN_SELECT_LIKE') or '1',
+        "COIN_VIDEO_SOURCE": os.environ.get('COIN_VIDEO_SOURCE') or 'dynamic'
     }
+    # ============================================================
     
     if not config["BILIBILI_COOKIE"]:
         logger.error('环境变量 BILIBILI_COOKIE 未设置，程序终止')
