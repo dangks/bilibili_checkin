@@ -17,24 +17,20 @@ logger.remove()
 logger.add(sys.stdout, format=BeijingFormatter.format, level="INFO", colorize=True)
 
 def mask_string(s: str) -> str:
-    """对字符串进行脱敏处理，首尾字符保留，中间用*代替"""
     if not isinstance(s, str) or len(s) <= 2:
         return s[:1] + '*' if s else '*'
     return f"{s[0]}{'*' * (len(s) - 2)}{s[-1]}"
 
-def execute_coin_task(bili, user_info, reward_info, config):
+def execute_coin_task(bili, user_info, config):
     coins_to_add = int(config.get('COIN_ADD_NUM', 1))
     if coins_to_add <= 0:
         return True, "配置为0，跳过"
     
-    if reward_info.get('coins', 0) >= 50:
-        return True, "今日投币经验已满"
-        
     coin_balance = user_info.get('money', 0)
     if coin_balance < 1:
         return True, f"硬币不足({coin_balance})，跳过"
     
-    coins_to_add = min(coins_to_add, int(coin_balance))
+    coins_to_add = min(coins_to_add, int(coin_balance), 5) # 每日最多投5个币获取经验
 
     if config.get('COIN_VIDEO_SOURCE') == 'ranking':
         video_list = bili.get_ranking_videos()
@@ -50,20 +46,21 @@ def execute_coin_task(bili, user_info, reward_info, config):
     for bvid in video_list:
         if added_coins >= coins_to_add:
             break
-        if bili.check_video_coin_status(bvid):
-            logger.info(f"视频 {bvid} 已投过币，跳过。")
-            continue
         
+        # 乐观投币，依赖API的返回结果判断是否重复
         success, msg = bili.add_coin(bvid, 1, int(config.get('COIN_SELECT_LIKE', 1)))
         if success:
             added_coins += 1
             logger.info(f"为视频 {bvid} 投币成功。")
+        elif "已达到" in msg:
+            logger.warning("今日投币上限已满，终止投币。")
+            # 如果API明确返回“已满”，我们可以提前终止循环
+            added_coins = config.get('COIN_ADD_NUM', 1) # 标记为任务完成
+            break
         else:
             logger.warning(f"为视频 {bvid} 投币失败: {msg}")
-            if "硬币不足" in msg:
-                break
 
-    return True, f"成功投出 {added_coins} 枚硬币"
+    return True, f"尝试投币，最终成功 {added_coins} 枚"
 
 def run_all_tasks_for_account(bili, config):
     tasks_to_run = [task.strip() for task in config.get('TASK_CONFIG', '').split(',') if task.strip()]
@@ -74,27 +71,27 @@ def run_all_tasks_for_account(bili, config):
     if not user_info:
         return {'登录检查': (False, 'Cookie失效或网络问题')}, None
         
-    reward_info = bili.get_daily_reward_info()
-    if not reward_info:
-        return {'任务状态获取': (False, 'API请求失败')}, user_info
-
     masked_uname = mask_string(user_info.get('uname'))
     logger.info(f"账号名称: {masked_uname}")
     tasks_result = {}
     
+    # 由于无法预先检查任务状态，我们总是尝试获取视频列表
     video_list = bili.get_dynamic_videos()
-    bvid_for_task = video_list[0] if video_list else 'BV1GJ411x7h7'
+    bvid_for_task = video_list[0] if video_list else 'BV1GJ411x7h7' # 提供一个备用BVID
 
+    # 直接执行任务，不再预先检查
     if 'share_video' in tasks_to_run:
-        tasks_result['分享视频'] = bili.share_video(bvid_for_task) if not reward_info.get('share') else (True, "今日已完成")
+        tasks_result['分享视频'] = bili.share_video(bvid_for_task)
     if 'live_sign' in tasks_to_run:
         tasks_result['直播签到'] = bili.live_sign()
     if 'manga_sign' in tasks_to_run:
         tasks_result['漫画签到'] = bili.manga_sign()
     if 'add_coin' in tasks_to_run:
-        tasks_result['投币任务'] = execute_coin_task(bili, user_info, reward_info, config)
+        # 投币任务现在不依赖 reward_info
+        tasks_result['投币任务'] = execute_coin_task(bili, user_info, config)
 
-    tasks_result['观看视频'] = bili.watch_video(bvid_for_task) if not reward_info.get('watch') else (True, "今日已完成")
+    # 观看视频任务仍然执行，B站API会处理重复观看的情况
+    tasks_result['观看视频'] = bili.watch_video(bvid_for_task)
 
     return tasks_result, user_info
 
