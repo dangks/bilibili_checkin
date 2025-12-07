@@ -119,26 +119,40 @@ def main():
     logger.info(f"检测到 {len(cookies)} 个账号，开始执行任务...")
     
     all_results = []
-    any_failed = False  # 新增：全局失败标志
+    any_failed = False  # 全局失败标志
     for i, cookie in enumerate(cookies, 1):
-        masked_account_name = None  # 提前声明
+        masked_account_name = None
         logger.info(f"=== 账号{i} 任务完成情况 ===")
         bili = BilibiliTask(cookie)
         tasks_result, user_info = run_all_tasks_for_account(bili, config)
         final_user_info = bili.get_user_info() if user_info else None
         all_results.append({'account_index': i, 'tasks': tasks_result, 'user_info': final_user_info})
 
+        # 账号任务成功标志
+        account_failed = False
+        valid_task_count = 0
+        valid_success_count = 0
+
         # 任务日志输出
         for task_name, (success, msg) in tasks_result.items():
+            # 跳过推送相关任务的判断（如有）
+            if "push" in task_name or "推送" in task_name:
+                continue
+            # 跳过未配置/跳过/已下线等无关紧要的任务
+            if msg and any(k in msg for k in IGNORE_FAIL_KEYWORDS):
+                continue
+            valid_task_count += 1
             level = logger.info if success else logger.error
             masked_account_name = mask_string(final_user_info.get('uname')) if final_user_info else f'账号{i}'
             if success:
+                valid_success_count += 1
                 level(f"[账号{i}] {task_name}: 成功")
             else:
                 level(f"[账号{i}] {task_name}: 失败，原因: {msg}")
-                # 只有不是“未配置”相关的失败才标记
-                if not msg or not ("未配置" in msg or "跳过" in msg):
-                    any_failed = True
+
+        # 判断账号是否失败
+        if not user_info or valid_task_count == 0 or valid_success_count == 0:
+            account_failed = True
 
         # 用户信息分段输出
         logger.info(f"=== 账号{i} 用户信息 ===")
@@ -152,7 +166,10 @@ def main():
             logger.error("用户信息获取失败")
         logger.info(f"--- 账号 {masked_account_name} 任务执行完毕 ---")
         logger.info("-" * 40)
-    
+
+        if account_failed:
+            any_failed = True
+
     if config["PUSH_PLUS_TOKEN"] and all_results:
         logger.info('准备发送推送通知...')
         title = "Bilibili 任务通知"
