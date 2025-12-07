@@ -135,15 +135,17 @@ def main():
 
         # 任务日志输出
         for task_name, (success, msg) in tasks_result.items():
-            # 跳过推送相关任务的判断（如有）
             if "push" in task_name or "推送" in task_name:
                 continue
             level = logger.info if success else logger.error
             masked_account_name = mask_string(final_user_info.get('uname')) if final_user_info else f'账号{i}'
-            # 优化：所有任务都打印日志，包括跳过/未配置
             if msg and any(k in msg for k in IGNORE_FAIL_KEYWORDS):
                 level(f"[账号{i}] {task_name}: 跳过，原因: {msg}")
-            elif success:
+                continue  # 跳过统计
+            # 统计有效任务
+            valid_task_count += 1
+            if success:
+                valid_success_count += 1
                 level(f"[账号{i}] {task_name}: 成功")
             else:
                 level(f"[账号{i}] {task_name}: 失败，原因: {msg}")
