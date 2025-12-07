@@ -186,5 +186,7 @@ def main():
         logger.info("所有账号任务全部成功！")
         sys.exit(0)
 
+IGNORE_FAIL_KEYWORDS = ["未配置", "跳过", "已下线"]
+
 if __name__ == '__main__':
     main()
