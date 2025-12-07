@@ -17,9 +17,15 @@ logger.remove()
 logger.add(sys.stdout, format=BeijingFormatter.format, level="INFO", colorize=True)
 
 def mask_string(s: str) -> str:
-    if not isinstance(s, str) or len(s) <= 2:
-        return s[:1] + '*' if s else '*'
-    return f"{s[0]}{'*' * (len(s) - 2)}{s[-1]}"
+    if not isinstance(s, str) or len(s) == 0:
+        return '*'
+    return s[0] + '*' * (len(s) - 1)
+
+def mask_uid(uid: str) -> str:
+    uid_str = str(uid)
+    if len(uid_str) <= 2:
+        return uid_str[0] + '*'
+    return uid_str[:2] + '*' * (len(uid_str) - 2)
 
 def execute_coin_task(bili, user_info, config):
     coins_to_add = int(config.get('COIN_ADD_NUM'))
@@ -130,13 +136,15 @@ def main():
                 level(f"[账号{i}] {task_name}: 成功")
             else:
                 level(f"[账号{i}] {task_name}: 失败，原因: {msg}")
-                any_failed = True  # 只要有一个任务失败，就标记为 True
+                # 只有不是“未配置”相关的失败才标记
+                if not msg or not ("未配置" in msg or "跳过" in msg):
+                    any_failed = True
 
         # 用户信息分段输出
         logger.info(f"=== 账号{i} 用户信息 ===")
         if final_user_info:
             logger.info(f"用户名: {mask_string(final_user_info.get('uname'))}")
-            logger.info(f"UID: {final_user_info.get('mid')}")
+            logger.info(f"UID: {mask_uid(final_user_info.get('mid'))}")
             logger.info(f"等级: {final_user_info.get('level_info', {}).get('current_level')}")
             logger.info(f"经验: {final_user_info.get('level_info', {}).get('current_exp')}")
             logger.info(f"硬币: {final_user_info.get('money')}")
