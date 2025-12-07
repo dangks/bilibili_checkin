@@ -113,6 +113,7 @@ def main():
     logger.info(f"检测到 {len(cookies)} 个账号，开始执行任务...")
     
     all_results = []
+    any_failed = False  # 新增：全局失败标志
     for i, cookie in enumerate(cookies, 1):
         masked_account_name = None  # 提前声明
         logger.info(f"=== 账号{i} 任务完成情况 ===")
@@ -129,6 +130,7 @@ def main():
                 level(f"[账号{i}] {task_name}: 成功")
             else:
                 level(f"[账号{i}] {task_name}: 失败，原因: {msg}")
+                any_failed = True  # 只要有一个任务失败，就标记为 True
 
         # 用户信息分段输出
         logger.info(f"=== 账号{i} 用户信息 ===")
@@ -150,6 +152,14 @@ def main():
         send_to_pushplus(config["PUSH_PLUS_TOKEN"], title, content)
     else:
         logger.info('未配置 PUSH_PLUS_TOKEN，跳过推送。')
+
+    # 所有账号执行完毕，统一输出最终执行结果
+    if any_failed:
+        logger.error("有账号任务执行失败，整个任务失败！")
+        sys.exit(1)
+    else:
+        logger.info("所有账号任务全部成功！")
+        sys.exit(0)
 
 if __name__ == '__main__':
     main()
