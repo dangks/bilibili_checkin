@@ -114,16 +114,34 @@ def main():
     
     all_results = []
     for i, cookie in enumerate(cookies, 1):
-        logger.info(f"--- 开始为账号 {i} 执行任务 ---")
-        
+        masked_account_name = None  # 提前声明
+        logger.info(f"=== 账号{i} 任务完成情况 ===")
         bili = BilibiliTask(cookie)
         tasks_result, user_info = run_all_tasks_for_account(bili, config)
-        
         final_user_info = bili.get_user_info() if user_info else None
         all_results.append({'account_index': i, 'tasks': tasks_result, 'user_info': final_user_info})
-        
-        masked_account_name = mask_string(final_user_info.get('uname')) if final_user_info else f'账号{i}'
+
+        # 任务日志输出
+        for task_name, (success, msg) in tasks_result.items():
+            level = logger.info if success else logger.error
+            masked_account_name = mask_string(final_user_info.get('uname')) if final_user_info else f'账号{i}'
+            if success:
+                level(f"[账号{i}] {task_name}: 成功")
+            else:
+                level(f"[账号{i}] {task_name}: 失败，原因: {msg}")
+
+        # 用户信息分段输出
+        logger.info(f"=== 账号{i} 用户信息 ===")
+        if final_user_info:
+            logger.info(f"用户名: {mask_string(final_user_info.get('uname'))}")
+            logger.info(f"UID: {final_user_info.get('mid')}")
+            logger.info(f"等级: {final_user_info.get('level_info', {}).get('current_level')}")
+            logger.info(f"经验: {final_user_info.get('level_info', {}).get('current_exp')}")
+            logger.info(f"硬币: {final_user_info.get('money')}")
+        else:
+            logger.error("用户信息获取失败")
         logger.info(f"--- 账号 {masked_account_name} 任务执行完毕 ---")
+        logger.info("-" * 40)
     
     if config["PUSH_PLUS_TOKEN"] and all_results:
         logger.info('准备发送推送通知...')
